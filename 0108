@@ -1,0 +1,330 @@
+## Rachel Li (SHU-YING, LI) 2023.12.30 
+
+#### Example code to install packages
+install.packages("data.table")
+#### Load required libraries
+library(data.table)
+library(ggplot2)
+install.packages("ggmosaic")
+library(ggmosaic)
+library(readr)
+#### Point the filePath to where you have downloaded the datasets to and
+#### assign the data files to data.tables
+# over to you! fill in the path to your working directory. If you are on a Windows
+# machine, you will need to use forward slashes (/) instead of backshashes (\)
+filePath <- "/Users/rachel/Desktop/Forage/"
+transactionData <- fread(paste0(filePath, "QVI_transaction_data.xlsx"))
+customerData <- fread(paste0(filePath,"QVI_purchase_behaviour.csv"))
+
+install.packages("readxl")
+# Install and load the required libraries
+if (!requireNamespace("data.table", quietly = TRUE)) {
+  install.packages("data.table")
+}
+if (!requireNamespace("readxl", quietly = TRUE)) {
+  install.packages("readxl")
+}
+
+library(data.table)
+library(readxl)
+
+# Set the file path to your working directory
+filePath <- "/Users/rachel/Desktop/Forage/"
+excelFileName <- "QVI_transaction_data.xlsx"
+
+# Read Excel file using read_excel function
+transactionData <- read_excel(paste0(filePath, excelFileName))
+
+# View the data
+View(transactionData)
+
+
+# Examine transaction data
+str(transactionData)
+
+
+# Convert DATE column to Date format
+transactionData$DATE <- as.Date(transactionData$DATE, origin = "1899-12-30")
+
+
+
+# Convert other numeric columns to numeric format
+numeric_columns <- c("STORE_NBR", "LYLTY_CARD_NBR", "TXN_ID", "PROD_NBR", "PROD_QTY", "TOT_SALES")
+transactionData[, numeric_columns] <- lapply(transactionData[, numeric_columns], as.numeric)
+
+# Verify the changes
+str(transactionData)
+
+# Summary of PROD_NAME column
+summary(transactionData$PROD_NAME)
+
+
+# Examine the words in PROD_NAME to see if there are any incorrect entries
+# such as products that are not chips
+productWords <- data.table(unlist(strsplit(unique(transactionData$PROD_NAME), " ")))
+setnames(productWords, 'words')
+
+# Remove digits and special characters
+productWords <- productWords[!grepl("[[:digit:]]", words) & !grepl("[&]", words)]
+
+# Sort the distinct words by frequency of occurrence
+wordFrequency <- table(productWords$words)
+sortedWords <- names(sort(wordFrequency, decreasing = TRUE))
+
+# Display the sorted words
+sortedWords
+
+install.packages("data.table")
+library(data.table)
+
+class(transactionData)
+transactionData <- as.data.table(transactionData)
+# Remove salsa products
+transactionData[, SALSA := grepl("salsa", tolower(PROD_NAME))]
+
+# Subsetting to remove salsa products
+transactionData <- transactionData[SALSA == FALSE]
+
+# 移除 salsa 產品
+transactionData <- transactionData[!grepl("salsa", tolower(PROD_NAME)), ]
+
+# Summarise the data to check for nulls and possible outliers
+summary(transactionData)
+
+# 安裝 dplyr 套件（如果尚未安裝）
+install.packages("dplyr")
+
+# 加載 dplyr 套件
+library(dplyr)
+
+# 使用 filter 函數找到購買 200 包薯片的交易
+outlier_transaction <- transactionData %>% filter(PROD_QTY == 200)
+
+# 顯示包含 200 包薯片的交易
+outlier_transaction
+
+# 使用 filter 函數找到這位客戶的其他交易
+other_transactions <- transactionData %>% filter(LYLTY_CARD_NBR == 226000)
+
+# 顯示這位客戶的其他交易
+other_transactions
+
+# 移除這位客戶的交易
+transactionData <- transactionData %>% filter(LYLTY_CARD_NBR != 226000)
+
+# 重新檢查交易數據
+summary(transactionData)
+
+
+# 按日期分組，並計算每個日期的交易數量
+transaction_count_by_date <- transactionData %>%
+  group_by(DATE) %>%
+  summarise(transaction_count = n())
+
+# 顯示交易數量摘要
+transaction_count_by_date
+
+# 創建日期序列
+date_sequence <- seq(as.Date("2018-07-01"), as.Date("2019-06-30"), by = "1 day")
+
+# 將日期序列與交易數據結合
+transactions_by_day <- data.frame(DATE = date_sequence) %>%
+  left_join(transaction_count_by_date, by = "DATE") %>%
+  mutate(N = ifelse(is.na(transaction_count), 0, transaction_count))
+
+# 繪製交易隨時間變化的圖表
+install.packages("ggplot2")
+library(ggplot2)
+ggplot(transactions_by_day, aes(x = DATE, y = N)) +
+  geom_line() +
+  labs(x = "Day", y = "Number of transactions", title = "Transactions over time") +
+  scale_x_date(breaks = "1 month") +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5))
+
+#### Filter to December and look at individual days
+december_data <- transactions_by_day[month(DATE) == 12, list(DATE, N)]
+# 查看 transactions_by_day 列名稱
+names(transactions_by_day)
+
+# 選擇 12 月份的資料
+december_data <- transactions_by_day[month(transactions_by_day$DATE) == 12, c("DATE", "N")]
+# 設定 plot themes 以格式化圖表
+theme_set(theme_bw())
+theme_update(plot.title = element_text(hjust = 0.5))
+
+# 選擇 12 月份的資料
+december_data <- transactions_by_day[month(transactions_by_day$DATE) == 12, c("DATE", "N")]
+
+# 繪製交易隨時間變化的圖表（放大到 12 月份）
+ggplot(december_data, aes(x = DATE, y = N)) +
+  geom_line() +
+  labs(x = "Day", y = "Number of transactions", title = "Transactions in December") +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5))
+
+# 創建 PACK_SIZE 特徵
+transactionData[, PACK_SIZE := parse_number(PROD_NAME)]
+
+# 檢查 PACK_SIZE 是否合理
+transactionData[, .N, PACK_SIZE][order(PACK_SIZE)]
+
+# 繪製 PACK_SIZE 的直方圖
+histogram_plot <- ggplot(transactionData, aes(x = PACK_SIZE)) +
+  geom_histogram(binwidth = 10, fill = "blue", color = "black") +
+  labs(x = "Pack Size (g)", y = "Number of Transactions", title = "Distribution of Pack Sizes") +
+  theme_minimal()
+
+print(histogram_plot)
+
+# 安裝和載入 stringr 套件
+install.packages("stringr")
+library(stringr)
+
+# 創建 BRAND 特徵
+transactionData[, BRAND := str_extract(PROD_NAME, "^[^ ]+")]
+
+# 檢查 BRAND 是否合理
+table(transactionData$BRAND)
+
+# 清理品牌名稱
+transactionData[BRAND == "RED", BRAND := "RRD"]
+# 檢查結果
+table(transactionData$BRAND)
+
+
+# 探索客戶數據
+# 對數據集進行基本摘要，包括任何關鍵列的分佈
+summary(customerData)
+
+# 將交易數據合併到客戶數據
+data <- merge(transactionData, customerData, all.x = TRUE)
+
+# 檢查是否有未匹配的客戶
+sum(is.na(data$LYLTY_CARD_NBR))
+
+fwrite(data, paste0(filePath, "QVI_data.csv"))
+
+##1. 誰在薯片上花費最多
+# 計算每位客戶的總銷售額
+total_sales_per_customer <- data %>%
+  group_by(LYLTY_CARD_NBR, LIFESTAGE, PREMIUM_CUSTOMER) %>%
+  summarise(total_sales = sum(TOT_SALES))
+
+# 找出花費最多的客戶
+top_spenders <- total_sales_per_customer %>%
+  top_n(10, wt = total_sales)
+
+# 顯示結果
+top_spenders
+
+##2. 每個分類中有多少客戶
+# 計算每個分類中的客戶數量
+customer_count_per_segment <- data %>%
+  group_by(LIFESTAGE, PREMIUM_CUSTOMER) %>%
+  summarise(customer_count = n_distinct(LYLTY_CARD_NBR))
+
+# 顯示結果
+customer_count_per_segment
+
+##3. 每個分類中每位客戶購買多少薯片
+# 計算每個分類中每位客戶購買的薯片數量
+chips_per_customer_per_segment <- data %>%
+  group_by(LIFESTAGE, PREMIUM_CUSTOMER, LYLTY_CARD_NBR) %>%
+  summarise(total_chips = sum(PROD_QTY))
+
+# 顯示結果
+chips_per_customer_per_segment
+
+##4. 按客戶分類的平均薯片價格
+# 計算每個分類中客戶的平均薯片價格
+average_chip_price_per_segment <- data %>%
+  group_by(LIFESTAGE, PREMIUM_CUSTOMER) %>%
+  summarise(average_chip_price = mean(TOT_SALES / PROD_QTY, na.rm = TRUE))
+
+# 顯示結果
+average_chip_price_per_segment
+
+
+
+# 計算 LIFESTAGE 和 PREMIUM_CUSTOMER 的總銷售額
+total_sales_by_segment <- data %>%
+  group_by(LIFESTAGE, PREMIUM_CUSTOMER) %>%
+  summarise(total_sales = sum(TOT_SALES))
+
+# 繪製總銷售額的圖表
+ggplot(total_sales_by_segment, aes(x = reorder(LIFESTAGE, -total_sales), y = total_sales, fill = PREMIUM_CUSTOMER)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(x = "LIFESTAGE", y = "Total Sales", title = "Total Sales by LIFESTAGE and PREMIUM_CUSTOMER") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+# 計算 LIFESTAGE 和 PREMIUM_CUSTOMER 的客戶數量
+customer_count_by_segment <- data %>%
+  group_by(LIFESTAGE, PREMIUM_CUSTOMER) %>%
+  summarise(customer_count = n_distinct(LYLTY_CARD_NBR))
+
+# 繪製客戶數量的圖表
+ggplot(customer_count_by_segment, aes(x = reorder(LIFESTAGE, -customer_count), y = customer_count, fill = PREMIUM_CUSTOMER)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(x = "LIFESTAGE", y = "Number of Customers", title = "Number of Customers by LIFESTAGE and PREMIUM_CUSTOMER") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+# 計算 LIFESTAGE 和 PREMIUM_CUSTOMER 的平均每位客戶購買的薯片數量
+average_units_per_customer <- data %>%
+  group_by(LIFESTAGE, PREMIUM_CUSTOMER) %>%
+  summarise(average_units = mean(PROD_QTY))
+
+# 繪製平均薯片數量的圖表
+ggplot(average_units_per_customer, aes(x = reorder(LIFESTAGE, -average_units), y = average_units, fill = PREMIUM_CUSTOMER)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(x = "LIFESTAGE", y = "Average Units per Customer", title = "Average Units per Customer by LIFESTAGE and PREMIUM_CUSTOMER") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+
+# 計算 LIFESTAGE 和 PREMIUM_CUSTOMER 的平均每單位薯片價格 
+average_price_per_unit <- data %>%
+  group_by(LIFESTAGE, PREMIUM_CUSTOMER) %>%
+  summarise(average_price = mean(TOT_SALES / PROD_QTY))
+
+# 繪製平均每單位薯片價格的圖表
+ggplot(average_price_per_unit, aes(x = reorder(LIFESTAGE, -average_price), y = average_price, fill = PREMIUM_CUSTOMER)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(x = "LIFESTAGE", y = "Average Price per Unit (AUD)", title = "Average Price per Unit by LIFESTAGE and PREMIUM_CUSTOMER") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+
+# 假設 average_price 是 TOT_SALES / PROD_QTY
+data[, average_price := TOT_SALES / PROD_QTY]
+
+# 將數據分為 Mainstream 和非 Mainstream
+mainstream_data <- data %>%
+  filter(PREMIUM_CUSTOMER %in% c("Budget", "Premium"))
+
+# 執行獨立 t 檢定
+t_test_result <- t.test(average_price ~ PREMIUM_CUSTOMER, data = mainstream_data)
+
+# 顯示 t 檢定結果
+t_test_result
+
+
+# 選擇 Mainstream - young singles/couples 客戶群體
+target_segment <- data[PREMIUM_CUSTOMER == "Mainstream" & LIFESTAGE %in% c("YOUNG SINGLES/COUPLES", "YOUNG SINGLES/COUPLES ")]
+
+# 計算品牌的偏好
+brand_preference <- table(target_segment$BRAND)
+
+# 顯示結果
+print(brand_preference)
+
+# 計算目標客戶群體的平均包裝大小
+target_avg_pack_size <- mean(target_segment$PACK_SIZE)
+
+# 計算全體客戶的平均包裝大小
+overall_avg_pack_size <- mean(data$PACK_SIZE)
+
+# 顯示結果
+print(target_avg_pack_size)
+print(overall_avg_pack_size)
+
+
+
