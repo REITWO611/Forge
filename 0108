@@ -2,14 +2,17 @@
 
 #### Example code to install packages
 install.packages("data.table")
+
 #### Load required libraries
 library(data.table)
 library(ggplot2)
 install.packages("ggmosaic")
 library(ggmosaic)
 library(readr)
+
 #### Point the filePath to where you have downloaded the datasets to and
 #### assign the data files to data.tables
+
 # over to you! fill in the path to your working directory. If you are on a Windows
 # machine, you will need to use forward slashes (/) instead of backshashes (\)
 filePath <- "/Users/rachel/Desktop/Forage/"
